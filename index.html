@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GENESIS - 만유인력 우주 시뮬레이터</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas Container -->
+  <div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+  </div>
+
+  <!-- Top Status Bar -->
+  <header id="top-bar" class="glass-panel">
+    <div class="logo-section">
+      <span style="font-size: 20px;">🪐</span>
+      <h1 class="app-title">GENESIS : 우주 만유인력 시뮬레이터</h1>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <span style="font-size: 12px; color: var(--text-dim);">우주 경과 시간</span>
+      <div id="universeClock" class="universe-clock">0년 000일 00시간 00분 00초</div>
+    </div>
+  </header>
+
+  <!-- Left Toolbar -->
+  <nav id="toolbar" class="glass-panel">
+    <button id="toolSpawn" class="tool-btn active" data-tooltip="천체 창조 (클릭: 위치 지정 / 바깥으로 드래그: 질량 크기 조절)">
+      ✨
+    </button>
+    <button id="toolPrecision" class="tool-btn" data-tooltip="두 점 질량 & 거리 직접 입력">
+      📐
+    </button>
+    <button id="toolPan" class="tool-btn" data-tooltip="시점 이동 및 천체 선택">
+      🖐️
+    </button>
+
+    <div class="tool-divider"></div>
+
+    <button id="btnFit" class="tool-btn" data-tooltip="모든 천체 화면 맞춤">
+      🎯
+    </button>
+    <button id="toggleTrails" class="tool-btn active" data-tooltip="궤적 (Trails) 토글">
+      🌀
+    </button>
+    <button id="toggleGravity" class="tool-btn active" data-tooltip="만유인력 벡터 토글">
+      ⚡
+    </button>
+    <button id="toggleVelocity" class="tool-btn active" data-tooltip="속도 벡터 토글">
+      🚀
+    </button>
+    <button id="toggleCOM" class="tool-btn active" data-tooltip="질량 중심 (COM) 토글">
+      ⊕
+    </button>
+  </nav>
+
+  <!-- Bottom Control Deck (Time & Simulation Controller) -->
+  <div id="control-deck" class="glass-panel">
+    <!-- Row 1: Playback Controls & Time Scale Slider (등간격 스케일) -->
+    <div class="deck-row">
+      <button id="btnPlayPause" class="btn-ctrl btn-primary">
+        <span id="playIcon">⏸️</span>
+        <span id="playText">일시정지</span>
+      </button>
+      <button id="btnStep" class="btn-ctrl" title="1스텝 진행">
+        ⏭️ 스텝
+      </button>
+      <button id="btnReset" class="btn-ctrl" title="완전한 빈 우주로 초기화">
+        🔄 우주 리셋
+      </button>
+
+      <div class="slider-container" style="flex-direction: column; align-items: stretch; gap: 4px; flex: 1.8;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="slider-label">시간 배속 (등간격 선택)</span>
+          <div id="timeScaleText" class="time-scale-display" style="min-width: auto;">
+            1초 = 1.0일 (86,400배)
+          </div>
+        </div>
+        <input type="range" id="timeScaleSlider" min="0" max="8" step="1" value="1" list="timeTicks">
+        <datalist id="timeTicks">
+          <option value="0" label="1초"></option>
+          <option value="1" label="1일"></option>
+          <option value="2" label="1달"></option>
+          <option value="3" label="1년"></option>
+          <option value="4" label="10년"></option>
+          <option value="5" label="10²년"></option>
+          <option value="6" label="10³년"></option>
+          <option value="7" label="10⁴년"></option>
+          <option value="8" label="1광년"></option>
+        </datalist>
+        <div id="sliderTicksLabels" class="slider-ticks-labels">
+          <span data-index="0">1초</span>
+          <span data-index="1" class="active">1일</span>
+          <span data-index="2">1달</span>
+          <span data-index="3">1년</span>
+          <span data-index="4">10년</span>
+          <span data-index="5">10²년</span>
+          <span data-index="6">10³년</span>
+          <span data-index="7">10⁴년</span>
+          <span data-index="8">1광년</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Real-world Time Presets -->
+    <div class="deck-row">
+      <span style="font-size: 11px; color: var(--text-dim);">배속 프리셋:</span>
+      <div class="preset-chips">
+        <button class="chip-btn" data-step="0">1초</button>
+        <button class="chip-btn active" data-step="1">1일</button>
+        <button class="chip-btn" data-step="2">1달</button>
+        <button class="chip-btn" data-step="3">1년</button>
+        <button class="chip-btn" data-step="4">10년</button>
+        <button class="chip-btn" data-step="5">10²년 (100년)</button>
+        <button class="chip-btn" data-step="6">10³년 (1천년)</button>
+        <button class="chip-btn" data-step="7">10⁴년 (1만년)</button>
+        <button class="chip-btn" data-step="8">1광년</button>
+      </div>
+
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; margin-left: auto;">
+        <input type="checkbox" id="chkCollision" checked>
+        충돌 합체
+      </label>
+    </div>
+  </div>
+
+  <!-- Right Side Inspector & Metrics Panel -->
+  <aside id="side-panel" class="glass-panel">
+    <!-- Two Body Physical Metrics -->
+    <div>
+      <div class="section-header">
+        <span>실시간 중력 상호작용</span>
+        <span id="bodyCountBadge" style="font-size: 11px; background: rgba(56,189,248,0.2); color:#38bdf8; padding: 2px 6px; border-radius: 4px;">천체 0개</span>
+      </div>
+
+      <!-- 천체 선택 드롭다운 메뉴 (천체 1, 2) -->
+      <div style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 8px; margin-bottom: 10px;">
+        <div style="font-size: 11px; color: var(--text-dim); margin-bottom: 6px;">비교할 두 천체 선택</div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <select id="selectBodyA" class="form-input" style="padding: 5px 6px; font-size: 12px; flex: 1;">
+            <option value="">천체 A 선택</option>
+          </select>
+          <span style="color: #ffd700; font-size: 13px;">⚡</span>
+          <select id="selectBodyB" class="form-input" style="padding: 5px 6px; font-size: 12px; flex: 1;">
+            <option value="">천체 B 선택</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-card full-width">
+          <div class="metric-title">두 물체 간 거리 (r)</div>
+          <div id="valDistance" class="metric-value highlight">-</div>
+        </div>
+        <div class="metric-card full-width">
+          <div class="metric-title">상호 만유인력 크기 (F = G·m₁·m₂ / r²)</div>
+          <div id="valForce" class="metric-value warning">-</div>
+        </div>
+        <div class="metric-card">
+          <div id="labelV1" class="metric-title">천체 A 속력</div>
+          <div id="valV1" class="metric-value">-</div>
+        </div>
+        <div class="metric-card">
+          <div id="labelV2" class="metric-title">천체 B 속력</div>
+          <div id="valV2" class="metric-value">-</div>
+        </div>
+        <div class="metric-card full-width">
+          <div class="metric-title">총 역학적 에너지 (K + U)</div>
+          <div id="valEnergy" class="metric-value">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selected Body Inspector -->
+    <div id="inspectorSection" style="display: none;">
+      <div class="section-header">
+        <span>천체 속성 편집</span>
+        <button id="btnDeleteBody" style="background: none; border: none; color: #f43f5e; cursor: pointer; font-size: 12px;">삭제</button>
+      </div>
+
+      <!-- 편집할 천체 선택 셀렉트박스 -->
+      <div class="form-group">
+        <label class="form-label">편집 대상 천체</label>
+        <select id="selectInspectBody" class="form-input" style="padding: 6px 8px; font-size: 12px; width: 100%;">
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">천체 이름</label>
+        <input type="text" id="inspectName" class="form-input">
+      </div>
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+          <label class="form-label" style="margin-bottom: 0;">질량 (kg)</label>
+          <span id="inspectMassRankBadge" style="font-size: 11px; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.15); padding: 2px 6px; border-radius: 4px;">지구급</span>
+        </div>
+        <input type="number" id="inspectMass" class="form-input" step="any">
+        
+        <!-- 지구xN배 (소수점 1자리) 및 급 표시 영역 -->
+        <div id="inspectMassEarthMultiple" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #38bdf8; margin-top: 5px; background: rgba(0,0,0,0.25); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.06);">
+          지구 × 1.0배 (지구급)
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-top: 8px;">
+          <button class="chip-btn" id="btnSetMoon" title="달 질량: 7.342e22 kg">달급</button>
+          <button class="chip-btn" id="btnSetEarth" title="지구 질량: 5.972e24 kg">지구급</button>
+          <button class="chip-btn" id="btnSetJupiter" title="목성 질량: 1.898e27 kg">목성급</button>
+          <button class="chip-btn" id="btnSetSun" title="태양 질량: 1.989e30 kg">태양급</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">천체 색상</label>
+        <input type="color" id="inspectColor" style="width: 100%; height: 32px; border: none; border-radius: 4px; background: transparent; cursor: pointer;">
+      </div>
+    </div>
+
+    <!-- Presets Section -->
+    <div>
+      <div class="section-header">우주 창조 프리셋</div>
+      <div class="preset-grid">
+        <button class="preset-card-btn" id="presetVoid">
+          🌌 완전한 빈 우주
+        </button>
+        <button class="preset-card-btn" id="presetEarthMoon">
+          🌍 지구 & 달
+        </button>
+        <button class="preset-card-btn" id="presetSunEarth">
+          ☀️ 태양 & 지구
+        </button>
+        <button class="preset-card-btn" id="presetBinary">
+          ⭐ 쌍성계 공전
+        </button>
+        <button class="preset-card-btn" id="presetCollision" style="grid-column: span 2;">
+          💥 2체 정면 충돌
+        </button>
+      </div>
+    </div>
+
+    <div style="font-size: 11px; color: var(--text-dim); line-height: 1.5; border-top: 1px solid var(--surface-border); padding-top: 10px;">
+      💡 <b>단축키 / 조작 팁</b><br>
+      • <b>좌클릭 & 드래그</b>: 클릭 위치에 천체 배치 + 바깥으로 드래그하여 질량 크기 조절<br>
+      • <b>우클릭 / 휠 드래그</b>: 화면 이동 (Pan)<br>
+      • <b>마우스 휠</b>: 마우스 커서 위치 기준 줌 인 / 줌 아웃<br>
+      • <b>스페이스바</b>: 일시정지 / 재생
+    </div>
+  </aside>
+
+  <!-- Modal: Direct 2-Body Precision Spawn -->
+  <div id="precisionModal" class="modal-overlay hidden">
+    <div class="modal-content glass-panel">
+      <h3 class="modal-title">두 점의 질량과 거리 직접 입력</h3>
+
+      <div class="form-group">
+        <label class="form-label">물체 1 질량</label>
+        <div class="input-row">
+          <input type="number" id="pMass1" class="form-input" value="5.972e24">
+          <select id="pUnitMass1" class="unit-select">
+            <option value="1">kg</option>
+            <option value="5.972e24" selected>M⊕ (지구)</option>
+            <option value="1.989e30">M☉ (태양)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">물체 2 질량</label>
+        <div class="input-row">
+          <input type="number" id="pMass2" class="form-input" value="7.342e22">
+          <select id="pUnitMass2" class="unit-select">
+            <option value="1">kg</option>
+            <option value="7.342e22" selected>M☽ (달)</option>
+            <option value="5.972e24">M⊕ (지구)</option>
+            <option value="1.989e30">M☉ (태양)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">두 물체 간 초기 거리</label>
+        <div class="input-row">
+          <input type="number" id="pDistance" class="form-input" value="384400">
+          <select id="pUnitDist" class="unit-select">
+            <option value="1000" selected>km</option>
+            <option value="1">m</option>
+            <option value="1.496e11">AU</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">운동 모드</label>
+        <select id="pMotionMode" class="form-input">
+          <option value="circular">안정적인 원궤도 공전 (Circular Orbit)</option>
+          <option value="stationary">초기 속도 0 (순수 만유인력 정면 끌림)</option>
+          <option value="elliptical">타원 궤도 공전 (Elliptical Orbit)</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btnModalCancel" class="btn-ctrl">취소</button>
+        <button id="btnModalCreate" class="btn-ctrl btn-primary">우주에 생성</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast">화면을 클릭하여 첫 번째 천체를 창조하세요!</div>
+
+  <!-- Main JavaScript Entrypoint -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
+

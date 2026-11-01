@@ -1,0 +1,13 @@
+{
+  "name": "gravity-ex",
+  "version": "1.0.0",
+  "description": "만유인력 우주 시뮬레이터 (GENESIS - Celestial Gravity Simulation)",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "keywords": ["physics", "gravity", "n-body", "astronomy", "canvas"],
+  "author": "",
+  "license": "MIT"
+}
+
