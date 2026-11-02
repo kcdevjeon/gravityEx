@@ -202,11 +202,16 @@
           지구 × 1.0배 (지구급)
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-top: 8px;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px;">
+          <button class="chip-btn" id="btnSet1kg" title="1 kg">1kg</button>
+          <button class="chip-btn" id="btnSet100kg" title="100 kg">100kg</button>
+          <button class="chip-btn" id="btnSet1ton" title="1 톤 (1,000 kg)">1톤</button>
+          <button class="chip-btn" id="btnSet10ton" title="10 톤 (10,000 kg)">10톤</button>
+          <button class="chip-btn" id="btnSetAsteroid" title="소행성급 (10^14 kg)">소행성</button>
           <button class="chip-btn" id="btnSetMoon" title="달 질량: 7.342e22 kg">달급</button>
           <button class="chip-btn" id="btnSetEarth" title="지구 질량: 5.972e24 kg">지구급</button>
           <button class="chip-btn" id="btnSetJupiter" title="목성 질량: 1.898e27 kg">목성급</button>
-          <button class="chip-btn" id="btnSetSun" title="태양 질량: 1.989e30 kg">태양급</button>
+          <button class="chip-btn" id="btnSetSun" style="grid-column: span 4;" title="태양 질량: 1.989e30 kg">☀️ 태양급 (1.989e30 kg)</button>
         </div>
       </div>
       <div class="form-group">
@@ -257,7 +262,11 @@
           <input type="number" id="pMass1" class="form-input" value="5.972e24">
           <select id="pUnitMass1" class="unit-select">
             <option value="1">kg</option>
+            <option value="1000">톤 (t)</option>
+            <option value="1e14">소행성 (10¹⁴kg)</option>
+            <option value="7.342e22">M☽ (달)</option>
             <option value="5.972e24" selected>M⊕ (지구)</option>
+            <option value="1.898e27">M♃ (목성)</option>
             <option value="1.989e30">M☉ (태양)</option>
           </select>
         </div>
@@ -269,8 +278,11 @@
           <input type="number" id="pMass2" class="form-input" value="7.342e22">
           <select id="pUnitMass2" class="unit-select">
             <option value="1">kg</option>
+            <option value="1000">톤 (t)</option>
+            <option value="1e14">소행성 (10¹⁴kg)</option>
             <option value="7.342e22" selected>M☽ (달)</option>
             <option value="5.972e24">M⊕ (지구)</option>
+            <option value="1.898e27">M♃ (목성)</option>
             <option value="1.989e30">M☉ (태양)</option>
           </select>
         </div>

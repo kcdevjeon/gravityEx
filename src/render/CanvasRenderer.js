@@ -326,33 +326,49 @@ export class CanvasRenderer {
   }
 
   // 생성 중인 천체 드래그 질량 팽창 프리뷰 렌더링
-  drawSpawnPreview(startScreen, currentScreen, mass, previewColor = '#4fa3ff') {
+  drawSpawnPreview(startScreen, currentScreen, mass, previewColor = '#38bdf8') {
     const ctx = this.ctx;
 
     const dx = currentScreen.x - startScreen.x;
     const dy = currentScreen.y - startScreen.y;
     const dragDist = Math.max(8, Math.hypot(dx, dy));
 
-    // 질량에 따른 시각적 반경 (드래그 거리를 직접 반경으로 사용)
-    const displayRadius = Math.max(10, Math.min(250, dragDist));
+    // 질량에 따른 시각적 반경
+    const displayRadius = Math.max(8, Math.min(260, dragDist));
 
     ctx.save();
 
-    // 질량 크기에 따른 동적 색상
+    // 질량 크기에 따른 동적 색상 및 등급 분류 (1kg, 100kg, 1톤, 10톤, 소행성, 달, 지구, 목성, 태양)
     let dynamicColor = previewColor;
-    let rankName = '소행성급';
+    let rankName = '1kg급 (인간 소지품)';
+
     if (mass >= 1.989e30) {
       dynamicColor = '#f59e0b'; // 황금빛 항성
-      rankName = '태양급 항성 (Star)';
+      rankName = '태양급 항성 (Sun)';
     } else if (mass >= 1e27) {
       dynamicColor = '#fb923c'; // 거대 가스행성
       rankName = '목성급 거대행성 (Giant)';
     } else if (mass >= 1e24) {
       dynamicColor = '#38bdf8'; // 지구형 행성
-      rankName = '지구급 행성 (Planet)';
+      rankName = '지구급 행성 (Earth)';
     } else if (mass >= 1e22) {
-      dynamicColor = '#94a3b8'; // 달/위성
+      dynamicColor = '#e2e8f0'; // 달/위성
       rankName = '달/위성급 (Moon)';
+    } else if (mass >= 1e11) {
+      dynamicColor = '#c084fc'; // 소행성
+      rankName = '소행성급 (Asteroid)';
+    } else if (mass >= 5000) {
+      dynamicColor = '#10b981'; // 10톤
+      rankName = '10톤급 (대형트럭/버스)';
+    } else if (mass >= 500) {
+      dynamicColor = '#34d399'; // 1톤
+      rankName = '1톤급 (승용차)';
+    } else if (mass >= 50) {
+      dynamicColor = '#67e8f9'; // 100kg
+      rankName = '100kg급 (성인/오토바이)';
+    } else {
+      dynamicColor = '#38bdf8'; // 1kg
+      rankName = '1kg급 (소형 물체)';
     }
 
     // 1. 외부 중력 오라(Glow) 팽창 효과
@@ -505,9 +521,17 @@ export class CanvasRenderer {
 
   formatMass(kg) {
     if (kg >= 1.989e30) return `${(kg / 1.989e30).toFixed(2)} M☉ (태양)`;
+    if (kg >= 1.898e27) return `${(kg / 1.898e27).toFixed(2)} M♃ (목성)`;
     if (kg >= 5.972e24) return `${(kg / 5.972e24).toFixed(2)} M⊕ (지구)`;
     if (kg >= 7.342e22) return `${(kg / 7.342e22).toFixed(2)} M☽ (달)`;
-    return `${kg.toExponential(2)} kg`;
+    if (kg >= 1e12) return `${(kg / 1e12).toFixed(1)}조 톤 (소행성급)`;
+    if (kg >= 1e9) return `${(kg / 1e9).toFixed(1)}백만 톤 (소행성급)`;
+    if (kg >= 1e6) return `${(kg / 1e3).toLocaleString()} 톤 (천 톤급)`;
+    if (kg >= 10000) return `${(kg / 1e3).toFixed(1)} 톤 (10톤급)`;
+    if (kg >= 1000) return `${(kg / 1e3).toFixed(2)} 톤 (1톤급)`;
+    if (kg >= 100) return `${kg.toFixed(0)} kg (100kg급)`;
+    if (kg >= 1) return `${kg.toFixed(1)} kg`;
+    return `${kg.toFixed(2)} kg`;
   }
 }
 

@@ -222,14 +222,42 @@ toggleCOM.addEventListener('click', () => {
   toggleCOM.classList.toggle('active', renderer.showCenterOfMass);
 });
 
-// --- 드래그 거리에 따른 질량 계산 ---
-function computeMassFromDrag(dragDist) {
-  if (dragDist < 8) return 5.972e24; // 기본 클릭: 지구 질량 (5.972e24 kg)
+// --- 드래그 거리에 따른 다단계 질량 스케일 (1kg, 100kg, 1톤, 10톤, 소행성, 달, 지구, 목성, 태양) ---
+const MASS_WAYPOINTS = [
+  { dist: 8, mass: 1 },             // 1 kg
+  { dist: 30, mass: 100 },          // 100 kg
+  { dist: 55, mass: 1000 },         // 1 톤 (1,000 kg)
+  { dist: 80, mass: 10000 },        // 10 톤 (10,000 kg)
+  { dist: 120, mass: 1e14 },        // 소행성급 (1,000억 톤)
+  { dist: 165, mass: 7.342e22 },    // 달급
+  { dist: 205, mass: 5.972e24 },    // 지구급
+  { dist: 245, mass: 1.898e27 },    // 목성급
+  { dist: 285, mass: 1.989e30 },    // 태양급
+];
 
-  // 8px ~ 240px 범위에서 질량이 지수적으로 팽창 (위성급 ~ 지구급 ~ 태양급 ~ 거대항성)
-  const norm = Math.min(1, Math.max(0, (dragDist - 8) / 220));
-  const logMass = 21.8 + Math.pow(norm, 1.35) * 9.5;
-  return Math.pow(10, logMass);
+function computeMassFromDrag(dragDist) {
+  if (dragDist <= MASS_WAYPOINTS[0].dist) {
+    return MASS_WAYPOINTS[0].mass; // 기본 클릭: 1 kg
+  }
+
+  // 구간별 로그 보간
+  for (let i = 0; i < MASS_WAYPOINTS.length - 1; i++) {
+    const w1 = MASS_WAYPOINTS[i];
+    const w2 = MASS_WAYPOINTS[i + 1];
+    if (dragDist <= w2.dist) {
+      const t = (dragDist - w1.dist) / (w2.dist - w1.dist);
+      const logM1 = Math.log10(w1.mass);
+      const logM2 = Math.log10(w2.mass);
+      const currentLog = logM1 + t * (logM2 - logM1);
+      return Math.pow(10, currentLog);
+    }
+  }
+
+  // 285px 초과 시 태양급 이상 팽창
+  const last = MASS_WAYPOINTS[MASS_WAYPOINTS.length - 1];
+  const extra = Math.min(60, dragDist - last.dist);
+  const logExtra = Math.log10(last.mass) + (extra / 60) * 1.5;
+  return Math.pow(10, logExtra);
 }
 
 function getColorByMass(mass) {
@@ -237,7 +265,11 @@ function getColorByMass(mass) {
   if (mass >= 1e27) return '#fb923c';     // 거대 가스행성 (오렌지)
   if (mass >= 1e24) return '#38bdf8';     // 지구형 행성 (청록/하늘)
   if (mass >= 1e22) return '#e2e8f0';     // 달/위성 (은백색)
-  return '#c084fc';                      // 소행성 (보라)
+  if (mass >= 1e11) return '#c084fc';     // 소행성 (보라)
+  if (mass >= 5000) return '#10b981';     // 10톤 (녹색)
+  if (mass >= 500) return '#34d399';      // 1톤 (민트)
+  if (mass >= 50) return '#67e8f9';       // 100kg (연청)
+  return '#38bdf8';                      // 1kg (하늘)
 }
 
 // --- 캔버스 마우스 & 터치 인터랙션 (창조 및 이동) ---
@@ -571,38 +603,45 @@ const inspectMassEarthMultiple = document.getElementById('inspectMassEarthMultip
 const inspectMassRankBadge = document.getElementById('inspectMassRankBadge');
 const inspectColor = document.getElementById('inspectColor');
 const btnDeleteBody = document.getElementById('btnDeleteBody');
-const btnSetJupiter = document.getElementById('btnSetJupiter');
 
-// 질량 분석 헬퍼 (지구 x N배 소수점 1자리 + 등급)
+// 질량 분석 헬퍼 (1kg, 100kg, 1톤, 10톤, 소행성, 달, 지구, 목성, 태양)
 function getMassRankAndMultiple(mass) {
   const earthMass = 5.972e24;
   const multiple = mass / earthMass;
 
   let rank = '지구급';
-  if (multiple < 0.1) {
+  let text = '';
+
+  if (mass < 50) {
+    rank = '1kg급';
+    text = `${mass.toFixed(1)} kg (소형 물체)`;
+  } else if (mass < 500) {
+    rank = '100kg급';
+    text = `${mass.toFixed(0)} kg (성인/오토바이)`;
+  } else if (mass < 5000) {
+    rank = '1톤급';
+    text = `${(mass / 1000).toFixed(2)} 톤 (승용차)`;
+  } else if (mass < 1e7) {
+    rank = '10톤급';
+    text = `${(mass / 1000).toFixed(1)} 톤 (대형트럭/버스)`;
+  } else if (mass < 1e19) {
+    rank = '소행성급';
+    text = `${mass.toExponential(2)} kg (소행성급)`;
+  } else if (multiple < 0.1) {
     rank = '달급';
+    text = `지구 × ${multiple.toFixed(3)}배 (달급)`;
   } else if (multiple < 50) {
     rank = '지구급';
+    text = `지구 × ${multiple.toFixed(1)}배 (지구급)`;
   } else if (multiple < 25000) {
     rank = '목성급';
+    text = `지구 × ${multiple.toFixed(1)}배 (목성급)`;
   } else {
     rank = '태양급';
+    text = `지구 × ${multiple.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}배 (태양급)`;
   }
 
-  let multipleFormatted = '';
-  if (multiple >= 1000) {
-    multipleFormatted = multiple.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  } else if (multiple >= 0.05) {
-    multipleFormatted = multiple.toFixed(1);
-  } else {
-    multipleFormatted = multiple.toFixed(3);
-  }
-
-  return {
-    multiple,
-    rank,
-    text: `지구 × ${multipleFormatted}배 (${rank})`
-  };
+  return { multiple, rank, text };
 }
 
 function updateInspector() {
@@ -685,23 +724,26 @@ btnDeleteBody.addEventListener('click', () => {
   }
 });
 
-document.getElementById('btnSetMoon').addEventListener('click', () => {
-  applyMassChange(7.342e22); // 달 (0.012 M⊕)
-});
+// 질량 빠른 설정 버튼들 (1kg, 100kg, 1톤, 10톤, 소행성, 달, 지구, 목성, 태양)
+const btnSet1kg = document.getElementById('btnSet1kg');
+const btnSet100kg = document.getElementById('btnSet100kg');
+const btnSet1ton = document.getElementById('btnSet1ton');
+const btnSet10ton = document.getElementById('btnSet10ton');
+const btnSetAsteroid = document.getElementById('btnSetAsteroid');
+const btnSetMoon = document.getElementById('btnSetMoon');
+const btnSetEarth = document.getElementById('btnSetEarth');
+const btnSetJupiter = document.getElementById('btnSetJupiter');
+const btnSetSun = document.getElementById('btnSetSun');
 
-document.getElementById('btnSetEarth').addEventListener('click', () => {
-  applyMassChange(5.972e24); // 지구 (1.0 M⊕)
-});
-
-if (btnSetJupiter) {
-  btnSetJupiter.addEventListener('click', () => {
-    applyMassChange(1.898e27); // 목성 (317.8 M⊕)
-  });
-}
-
-document.getElementById('btnSetSun').addEventListener('click', () => {
-  applyMassChange(1.989e30); // 태양 (333,000 M⊕)
-});
+if (btnSet1kg) btnSet1kg.addEventListener('click', () => applyMassChange(1));
+if (btnSet100kg) btnSet100kg.addEventListener('click', () => applyMassChange(100));
+if (btnSet1ton) btnSet1ton.addEventListener('click', () => applyMassChange(1000));
+if (btnSet10ton) btnSet10ton.addEventListener('click', () => applyMassChange(10000));
+if (btnSetAsteroid) btnSetAsteroid.addEventListener('click', () => applyMassChange(1e14));
+if (btnSetMoon) btnSetMoon.addEventListener('click', () => applyMassChange(7.342e22));
+if (btnSetEarth) btnSetEarth.addEventListener('click', () => applyMassChange(5.972e24));
+if (btnSetJupiter) btnSetJupiter.addEventListener('click', () => applyMassChange(1.898e27));
+if (btnSetSun) btnSetSun.addEventListener('click', () => applyMassChange(1.989e30));
 
 // --- 우주 시간 포맷터 ---
 function formatUniverseTime(totalSeconds) {
