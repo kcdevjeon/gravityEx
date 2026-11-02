@@ -437,7 +437,8 @@ export class CanvasRenderer {
   // 화면 좌하단 스케일바
   drawScaleBar() {
     const ctx = this.ctx;
-    const targetPx = 150;
+    const isMobile = this.camera.getViewportWidth() <= 768;
+    const targetPx = isMobile ? 80 : 150;
     const targetMeters = targetPx * this.camera.metersPerPixel;
 
     // 보기 쉬운 단위로 라운딩
@@ -448,8 +449,8 @@ export class CanvasRenderer {
     else if (targetMeters / base >= 2) niceMeters = base * 2;
 
     const actualPx = niceMeters / this.camera.metersPerPixel;
-    const x = 30;
-    const y = this.camera.getViewportHeight() - 30;
+    const x = isMobile ? 14 : 30;
+    const y = this.camera.getViewportHeight() - (isMobile ? 125 : 30);
 
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';

@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>GENESIS - 만유인력 우주 시뮬레이터</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,11 +16,14 @@
   <header id="top-bar" class="glass-panel">
     <div class="logo-section">
       <span style="font-size: 20px;">🪐</span>
-      <h1 class="app-title">GENESIS : 우주 만유인력 시뮬레이터</h1>
+      <h1 class="app-title">GENESIS<span class="app-subtitle"> : 우주 만유인력 시뮬레이터</span></h1>
     </div>
-    <div style="display: flex; gap: 12px; align-items: center;">
-      <span style="font-size: 12px; color: var(--text-dim);">우주 경과 시간</span>
+    <div class="top-bar-right">
       <div id="universeClock" class="universe-clock">0년 000일 00시간 00분 00초</div>
+      <button id="btnToggleSidePanel" class="btn-ctrl mobile-menu-btn" title="정보 및 우주 설정">
+        <span>📊</span>
+        <span class="btn-label-mobile">설정/정보</span>
+      </button>
     </div>
   </header>
 
@@ -57,22 +60,26 @@
 
   <!-- Bottom Control Deck (Time & Simulation Controller) -->
   <div id="control-deck" class="glass-panel">
+    <button id="btnToggleDeck" class="deck-toggle-tab" title="컨트롤 패널 접기/펼치기" aria-label="컨트롤 패널 접기">▼</button>
+
     <!-- Row 1: Playback Controls & Time Scale Slider (등간격 스케일) -->
-    <div class="deck-row">
-      <button id="btnPlayPause" class="btn-ctrl btn-primary">
-        <span id="playIcon">⏸️</span>
-        <span id="playText">일시정지</span>
-      </button>
-      <button id="btnStep" class="btn-ctrl" title="1스텝 진행">
-        ⏭️ 스텝
-      </button>
-      <button id="btnReset" class="btn-ctrl" title="완전한 빈 우주로 초기화">
-        🔄 우주 리셋
-      </button>
+    <div class="deck-row deck-main-row">
+      <div class="deck-btn-group">
+        <button id="btnPlayPause" class="btn-ctrl btn-primary">
+          <span id="playIcon">⏸️</span>
+          <span id="playText">일시정지</span>
+        </button>
+        <button id="btnStep" class="btn-ctrl" title="1스텝 진행">
+          ⏭️ <span class="hide-mobile">스텝</span>
+        </button>
+        <button id="btnReset" class="btn-ctrl" title="완전한 빈 우주로 초기화">
+          🔄 <span class="hide-mobile">우주 </span>리셋
+        </button>
+      </div>
 
       <div class="slider-container" style="flex-direction: column; align-items: stretch; gap: 4px; flex: 1.8;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span class="slider-label">시간 배속 (등간격 선택)</span>
+          <span class="slider-label">시간 배속</span>
           <div id="timeScaleText" class="time-scale-display" style="min-width: auto;">
             1초 = 1.0일 (86,400배)
           </div>
@@ -104,8 +111,8 @@
     </div>
 
     <!-- Row 2: Real-world Time Presets -->
-    <div class="deck-row">
-      <span style="font-size: 11px; color: var(--text-dim);">배속 프리셋:</span>
+    <div class="deck-row deck-preset-row">
+      <span class="preset-label" style="font-size: 11px; color: var(--text-dim); white-space: nowrap;">배속:</span>
       <div class="preset-chips">
         <button class="chip-btn" data-step="0">1초</button>
         <button class="chip-btn active" data-step="1">1일</button>
@@ -118,15 +125,25 @@
         <button class="chip-btn" data-step="8">10⁵년 (10만년)</button>
       </div>
 
-      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; margin-left: auto;">
+      <label class="collision-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; margin-left: auto; white-space: nowrap;">
         <input type="checkbox" id="chkCollision" checked>
         충돌 합체
       </label>
     </div>
   </div>
 
+  <!-- Mobile Drawer Backdrop -->
+  <div id="sidePanelBackdrop" class="drawer-backdrop hidden"></div>
+
   <!-- Right Side Inspector & Metrics Panel -->
   <aside id="side-panel" class="glass-panel">
+    <!-- Mobile Close Bar -->
+    <div class="side-panel-mobile-bar">
+      <div style="font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; color: #fff;">
+        <span>🪐</span> 상세 정보 & 창조
+      </div>
+      <button id="btnCloseSidePanel" class="btn-ctrl" style="padding: 4px 10px; font-size: 12px;">✕ 닫기</button>
+    </div>
     <!-- Two Body Physical Metrics -->
     <div>
       <div class="section-header">

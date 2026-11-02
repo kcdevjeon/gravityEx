@@ -326,6 +326,42 @@ canvas.addEventListener('mousemove', (e) => {
   }
 });
 
+// 천체 생성 완료 공통 함수
+function finalizeSpawn(startScreen, endScreen) {
+  // 클릭한 지점이 천체의 위치가 됨
+  const worldPos = camera.screenToWorld(startScreen.x, startScreen.y);
+
+  // 드래그 거리로부터 천체 질량 산출 (속도는 정의하지 않고 0으로 고정)
+  const dx = endScreen.x - startScreen.x;
+  const dy = endScreen.y - startScreen.y;
+  const dragDist = Math.hypot(dx, dy);
+
+  const mass = computeMassFromDrag(dragDist);
+  const bodyColor = getColorByMass(mass);
+  const newName = `천체 ${engine.bodies.length + 1}`;
+
+  const newBody = new CelestialBody({
+    name: newName,
+    position: worldPos,
+    velocity: new Vector2(0, 0), // 초기 속도는 0 (오직 상호 만유인력으로만 운동 시작)
+    mass: mass,
+    color: bodyColor
+  });
+
+  engine.addBody(newBody);
+  selectedBodyId = newBody.id;
+  updateInspector();
+
+  const massText = renderer.formatMass(mass);
+  if (engine.bodies.length === 1) {
+    showToast(`첫 번째 천체(${massText})가 창조되었습니다! 다른 위치에 두 번째 천체를 놓아보세요.`);
+  } else if (engine.bodies.length === 2) {
+    showToast(`두 번째 천체(${massText}) 생성! 상호 중력 인력으로 서로를 향해 끌어당기기 시작합니다.`);
+  } else {
+    showToast(`${newName}(${massText})이(가) 우주에 추가되었습니다.`);
+  }
+}
+
 canvas.addEventListener('mouseup', (e) => {
   if (isRightDragging) {
     isRightDragging = false;
@@ -338,40 +374,123 @@ canvas.addEventListener('mouseup', (e) => {
     const rect = canvas.getBoundingClientRect();
     const endX = e.clientX - rect.left;
     const endY = e.clientY - rect.top;
+    finalizeSpawn(dragStartPos, { x: endX, y: endY });
+  }
+});
 
-    // 클릭한 지점이 천체의 위치가 됨
-    const worldPos = camera.screenToWorld(dragStartPos.x, dragStartPos.y);
+// --- 모바일 터치 제스처 (1손가락 드래그 생성 / 팬 / 2손가락 핀치 줌 & 팬) ---
+let touchPinchDist = null;
+let touchPinchCenter = null;
+let isTouchPanning = false;
+let touchPanStart = null;
 
-    // 드래그 거리로부터 천체 질량 산출 (속도는 정의하지 않고 0으로 고정)
-    const dx = endX - dragStartPos.x;
-    const dy = endY - dragStartPos.y;
-    const dragDist = Math.hypot(dx, dy);
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
 
-    const mass = computeMassFromDrag(dragDist);
-    const bodyColor = getColorByMass(mass);
-    const newName = `천체 ${engine.bodies.length + 1}`;
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    const screenX = t.clientX - rect.left;
+    const screenY = t.clientY - rect.top;
 
-    const newBody = new CelestialBody({
-      name: newName,
-      position: worldPos,
-      velocity: new Vector2(0, 0), // 초기 속도는 0 (오직 상호 만유인력으로만 운동 시작)
-      mass: mass,
-      color: bodyColor
-    });
-
-    engine.addBody(newBody);
-    selectedBodyId = newBody.id;
-    updateInspector();
-
-    const massText = renderer.formatMass(mass);
-    if (engine.bodies.length === 1) {
-      showToast(`첫 번째 천체(${massText})가 창조되었습니다! 다른 위치에 두 번째 천체를 놓아보세요.`);
-    } else if (engine.bodies.length === 2) {
-      showToast(`두 번째 천체(${massText}) 생성! 상호 중력 인력으로 서로를 향해 끌어당기기 시작합니다.`);
+    if (currentTool === 'spawn') {
+      isDragging = true;
+      dragStartPos = { x: screenX, y: screenY };
+      dragCurrentPos = { x: screenX, y: screenY };
     } else {
-      showToast(`${newName}(${massText})이(가) 우주에 추가되었습니다.`);
+      // pan 모드: 천체 터치 선택 확인
+      const clickedBody = engine.bodies.find(b => {
+        const s = camera.worldToScreen(b.position.x, b.position.y);
+        const displayRadius = Math.max(16, b.radius / camera.metersPerPixel);
+        return Math.hypot(s.x - screenX, s.y - screenY) <= displayRadius + 14;
+      });
+
+      if (clickedBody) {
+        selectedBodyId = clickedBody.id;
+        updateInspector();
+        showToast(`${clickedBody.name} 선택됨`);
+      }
+
+      isTouchPanning = true;
+      touchPanStart = { x: screenX, y: screenY };
+    }
+  } else if (e.touches.length >= 2) {
+    // 2점 터치: 핀치 줌 & 2손가락 팬 준비
+    isDragging = false;
+    isTouchPanning = false;
+
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    touchPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    touchPinchCenter = {
+      x: (t0.clientX + t1.clientX) / 2 - rect.left,
+      y: (t0.clientY + t1.clientY) / 2 - rect.top
+    };
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    const screenX = t.clientX - rect.left;
+    const screenY = t.clientY - rect.top;
+
+    if (isDragging && currentTool === 'spawn') {
+      dragCurrentPos = { x: screenX, y: screenY };
+    } else if (isTouchPanning && touchPanStart) {
+      const dx = screenX - touchPanStart.x;
+      const dy = screenY - touchPanStart.y;
+      camera.pan(dx, dy);
+      touchPanStart = { x: screenX, y: screenY };
+    }
+  } else if (e.touches.length >= 2 && touchPinchDist && touchPinchCenter) {
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const currentDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+    const currentCenter = {
+      x: (t0.clientX + t1.clientX) / 2 - rect.left,
+      y: (t0.clientY + t1.clientY) / 2 - rect.top
+    };
+
+    if (currentDist > 0 && touchPinchDist > 0) {
+      const zoomFactor = touchPinchDist / currentDist;
+      camera.zoomAt(currentCenter.x, currentCenter.y, zoomFactor);
+      camera.pan(currentCenter.x - touchPinchCenter.x, currentCenter.y - touchPinchCenter.y);
+
+      touchPinchDist = currentDist;
+      touchPinchCenter = currentCenter;
     }
   }
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+
+  if (isDragging && currentTool === 'spawn') {
+    isDragging = false;
+    finalizeSpawn(dragStartPos, dragCurrentPos);
+  }
+
+  if (isTouchPanning) {
+    isTouchPanning = false;
+    touchPanStart = null;
+  }
+
+  if (e.touches.length < 2) {
+    touchPinchDist = null;
+    touchPinchCenter = null;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', () => {
+  isDragging = false;
+  isTouchPanning = false;
+  touchPanStart = null;
+  touchPinchDist = null;
+  touchPinchCenter = null;
 });
 
 // 우클릭 기본 컨텍스트 메뉴 방지
@@ -744,6 +863,55 @@ if (btnSetMoon) btnSetMoon.addEventListener('click', () => applyMassChange(7.342
 if (btnSetEarth) btnSetEarth.addEventListener('click', () => applyMassChange(5.972e24));
 if (btnSetJupiter) btnSetJupiter.addEventListener('click', () => applyMassChange(1.898e27));
 if (btnSetSun) btnSetSun.addEventListener('click', () => applyMassChange(1.989e30));
+
+// --- 모바일 사이드 드로어 & 컨트롤 덱 토글 로직 ---
+const btnToggleSidePanel = document.getElementById('btnToggleSidePanel');
+const btnCloseSidePanel = document.getElementById('btnCloseSidePanel');
+const sidePanelBackdrop = document.getElementById('sidePanelBackdrop');
+const sidePanel = document.getElementById('side-panel');
+const btnToggleDeck = document.getElementById('btnToggleDeck');
+const controlDeck = document.getElementById('control-deck');
+
+function openSidePanel() {
+  if (sidePanel) sidePanel.classList.add('open');
+  if (sidePanelBackdrop) sidePanelBackdrop.classList.remove('hidden');
+}
+
+function closeSidePanel() {
+  if (sidePanel) sidePanel.classList.remove('open');
+  if (sidePanelBackdrop) sidePanelBackdrop.classList.add('hidden');
+}
+
+if (btnToggleSidePanel) {
+  btnToggleSidePanel.addEventListener('click', () => {
+    if (sidePanel && sidePanel.classList.contains('open')) {
+      closeSidePanel();
+    } else {
+      openSidePanel();
+    }
+  });
+}
+
+if (btnCloseSidePanel) btnCloseSidePanel.addEventListener('click', closeSidePanel);
+if (sidePanelBackdrop) sidePanelBackdrop.addEventListener('click', closeSidePanel);
+
+// 모바일 환경에서 프리셋 버튼 클릭 시 드로어를 닫아 즉시 시뮬레이션을 감상할 수 있도록 편의 제공
+const presetButtons = document.querySelectorAll('.preset-card-btn');
+presetButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      closeSidePanel();
+    }
+  });
+});
+
+if (btnToggleDeck && controlDeck) {
+  btnToggleDeck.addEventListener('click', () => {
+    const isCollapsed = controlDeck.classList.toggle('collapsed');
+    btnToggleDeck.textContent = isCollapsed ? '▲' : '▼';
+    btnToggleDeck.setAttribute('aria-label', isCollapsed ? '컨트롤 패널 펼치기' : '컨트롤 패널 접기');
+  });
+}
 
 // --- 우주 시간 포맷터 ---
 function formatUniverseTime(totalSeconds) {
