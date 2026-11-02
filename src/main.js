@@ -102,7 +102,7 @@ const TIME_STEPS = [
   { index: 5, label: '10²년', seconds: YEAR_SEC * 100, text: '1초 = 10²년 (100년, 3.15 × 10⁹배)' },
   { index: 6, label: '10³년', seconds: YEAR_SEC * 1000, text: '1초 = 10³년 (1,000년, 3.15 × 10¹⁰배)' },
   { index: 7, label: '10⁴년', seconds: YEAR_SEC * 10000, text: '1초 = 10⁴년 (10,000년, 3.15 × 10¹¹배)' },
-  { index: 8, label: '1광년', seconds: YEAR_SEC * 100000, text: '1초 = 1광년 (10만년, 3.15 × 10¹²배)' },
+  { index: 8, label: '10⁵년', seconds: YEAR_SEC * 100000, text: '1초 = 10⁵년 (100,000년, 3.15 × 10¹²배)' },
 ];
 
 function setTimeStep(stepIndex) {
