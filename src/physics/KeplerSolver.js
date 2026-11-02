@@ -7,7 +7,9 @@ import { Vector2 } from './Vector2.js';
  */
 export class KeplerSolver {
   /**
-   * 두 천체가 중력 구속 상태(타원/원 궤도, E < 0)인지 검사
+   * 두 천체가 충돌하지 않고 안정적으로 공전하는 중력 구속 상태(타원/원 궤도)인지 검사
+   * 만약 정면 충돌 궤도(e >= 0.96)이거나 근일점 거리가 충돌 반경 이하라면
+   * 충돌 검사를 위해 false를 반환하여 수치 적분 및 충돌 합체 엔진으로 위임합니다.
    */
   static isBoundOrbit(b1, b2, G) {
     const totalMass = b1.mass + b2.mass;
@@ -15,15 +17,41 @@ export class KeplerSolver {
 
     const mu = G * totalMass;
     const r = b1.position.distanceTo(b2.position);
-    if (r <= 0) return false;
+    const combinedRadius = (b1.radius + b2.radius) * 1.3;
+    if (r <= combinedRadius) return false; // 이미 충돌 반경 이내면 즉시 충돌 처리
 
-    const relVx = b2.velocity.x - b1.velocity.x;
-    const relVy = b2.velocity.y - b1.velocity.y;
-    const vSq = relVx * relVx + relVy * relVy;
+    const rx = b2.position.x - b1.position.x;
+    const ry = b2.position.y - b1.position.y;
+    const vx = b2.velocity.x - b1.velocity.x;
+    const vy = b2.velocity.y - b1.velocity.y;
+    const vSq = vx * vx + vy * vy;
 
     // 비에너지 (Specific Orbital Energy): ε = v^2/2 - μ/r
     const specificEnergy = 0.5 * vSq - mu / r;
-    return specificEnergy < -1e-6; // 음수이면 타원 궤도
+    if (specificEnergy >= -1e-6) return false; // 포물선/쌍곡선 탈출 궤도
+
+    // 궤도 장반경 a
+    const a = -mu / (2 * specificEnergy);
+
+    // 각운동량 h (h가 0에 가까우면 순수 정면 충돌)
+    const h = rx * vy - ry * vx;
+
+    // 이심률 벡터 크기 e
+    const ex = (vy * h) / mu - rx / r;
+    const ey = (-vx * h) / mu - ry / r;
+    const e = Math.hypot(ex, ey);
+
+    // 1. 거의 직선 충돌 궤도인 경우 (초기 속도 0 등) -> 충돌해야 하므로 케플러 공전 제외
+    if (e >= 0.95) return false;
+
+    // 2. 근일점 거리(가장 가까워지는 최소 거리 r_peri = a * (1 - e)) 검사
+    const periapsis = a * (1 - e);
+    if (periapsis <= combinedRadius) {
+      // 궤도 상에서 언젠가 충돌하게 되는 궤도이므로 충돌 엔진에 위임
+      return false;
+    }
+
+    return true; // 충돌하지 않고 영구히 공전하는 안전한 궤도만 케플러 전파 허용
   }
 
   /**

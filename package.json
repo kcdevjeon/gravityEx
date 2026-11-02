@@ -1,6 +1,7 @@
 {
   "name": "gravity-ex",
   "version": "1.0.0",
+  "type": "module",
   "description": "만유인력 우주 시뮬레이터 (GENESIS - Celestial Gravity Simulation)",
   "main": "index.html",
   "scripts": {

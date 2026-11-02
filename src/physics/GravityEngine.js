@@ -59,9 +59,9 @@ export class GravityEngine {
 
         if (dist === 0) continue;
 
-        // 천체의 실제 물리적 반지름을 반영한 적응형 소프트닝 (특이점/무한대 가속도 폭발 완벽 차단)
-        const combinedRadius = b1.radius + b2.radius;
-        const softening = Math.max(1e5, combinedRadius * 0.6); // 천체 크기 기반
+        // 천체의 실제 물리적 반지름을 반영한 적응형 소프트닝
+        const combinedRadius = (b1.radius + b2.radius) * 1.35;
+        const softening = Math.max(1e4, combinedRadius * 0.4);
         const effectiveDistSq = distSq + softening * softening;
 
         // F = G * m1 * m2 / (r^2 + ε^2)
@@ -99,7 +99,8 @@ export class GravityEngine {
         const currP1 = b1.position;
         const currP2 = b2.position;
 
-        const combinedRadius = b1.radius + b2.radius;
+        // 충돌 반경: 두 천체의 물리적 반지름 합에 조석 포획 마진(1.35배) 적용
+        const combinedRadius = (b1.radius + b2.radius) * 1.35;
 
         // 1. 현재 스냅샷 거리 검사
         const currDist = currP1.distanceTo(currP2);
@@ -211,20 +212,29 @@ export class GravityEngine {
     const targetSimDt = realDeltaTimeSec * this.timeScale;
     if (targetSimDt <= 0) return;
 
-    // --- 초고속 배속 케플러 완전해 (하이브리드 모드) ---
-    // 2체 중력 시스템이 구속 궤도(타원/원)일 때,
-    // 1프레임 동안 공전 주기의 2.5% 이상을 점프할 정도로 초고속 배속인 경우:
-    // 수치 적분의 이산화 오차(다각형 붕괴 및 발산)를 원천 차단하기 위해
-    // 수학적 완전해(Kepler exact analytic solution)로 전파합니다.
+    // --- 초고속 배속 케플러 완전해 (비충돌 안정 공전 궤도만 허용) ---
     if (this.bodies.length === 2 && KeplerSolver.isBoundOrbit(this.bodies[0], this.bodies[1], this.G)) {
       const period = KeplerSolver.getOrbitalPeriod(this.bodies[0], this.bodies[1], this.G);
       if (period > 0 && targetSimDt >= period * 0.02) {
+        const prevP0 = this.bodies[0].position.clone();
+        const prevP1 = this.bodies[1].position.clone();
+
         const success = KeplerSolver.propagate(this.bodies[0], this.bodies[1], this.G, targetSimDt);
         if (success) {
+          // 전파 후에도 충돌 검사 실행
+          const prevMap = new Map([
+            [this.bodies[0].id, prevP0],
+            [this.bodies[1].id, prevP1]
+          ]);
+          const collided = this.checkContinuousCollisions(prevMap);
+          if (collided) {
+            this.computeAccelerations();
+            return;
+          }
+
           this.computeAccelerations();
           this.simulatedTime += targetSimDt;
 
-          // 초고속 배속에서도 궤적 기록
           for (const b of this.bodies) {
             b.recordTrail();
           }
@@ -233,7 +243,7 @@ export class GravityEngine {
       }
     }
 
-    // 일반 수치 적분 모드 (저/중속 배속 및 3체 이상 N-body)
+    // 일반 수치 적분 모드 (충돌 궤도, 정면 접근 및 다체 N-body)
     let minDistance = Infinity;
     let minCombinedRadius = 1e6;
     let maxVelocity = 1;
@@ -246,24 +256,27 @@ export class GravityEngine {
         const d = this.bodies[i].position.distanceTo(this.bodies[j].position);
         if (d < minDistance) {
           minDistance = d;
-          minCombinedRadius = this.bodies[i].radius + this.bodies[j].radius;
+          minCombinedRadius = (this.bodies[i].radius + this.bodies[j].radius) * 1.35;
         }
       }
     }
 
     // 천체가 서로 근접할 때 시간 간격을 동적으로 축소
     const contactMargin = Math.max(minCombinedRadius, minDistance - minCombinedRadius);
-    let safeSubstepDt = Math.max(0.5, (contactMargin / maxVelocity) * 0.1);
+    let safeSubstepDt = Math.max(0.1, (contactMargin / maxVelocity) * 0.08);
 
-    // 서브스텝 수 결정 (최소 2, 최대 this.maxSubsteps)
+    // 서브스텝 수 결정 (근접 충돌 코스인 경우 서브스텝을 대폭 보강하여 터널링 방지)
     let steps = Math.ceil(targetSimDt / safeSubstepDt);
+    if (minDistance <= minCombinedRadius * 3) {
+      steps = Math.max(steps, 80); // 충돌 임박 시 최소 80 서브스텝 보장
+    }
     if (steps < 2) steps = 2;
     if (steps > this.maxSubsteps) steps = this.maxSubsteps;
 
     const subDt = targetSimDt / steps;
 
     for (let s = 0; s < steps; s++) {
-      if (this.bodies.length === 0) break;
+      if (this.bodies.length <= 1) break;
       this.stepVerlet(subDt);
     }
 
